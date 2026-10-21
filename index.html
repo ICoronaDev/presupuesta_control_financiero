@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0E2238">
+  <title>PRESUPUESTA | Control financiero</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-brand"><span class="brand-symbol">$</span><span>PRESUPUESTA</span></div>
+    <div class="login-layout">
+      <div class="login-promo">
+        <p class="eyebrow light">TU DINERO, MÁS CLARO</p>
+        <h1>Organiza tus finanzas.<br><span>Decide con confianza.</span></h1>
+        <p>Registra movimientos, define presupuestos y entiende mejor cómo utilizas tu dinero.</p>
+        <div class="promo-points">
+          <span>✓ Ingresos y gastos en un solo lugar</span>
+          <span>✓ Alertas para cuidar tu presupuesto</span>
+          <span>✓ Informes que puedes exportar</span>
+        </div>
+        <div class="promo-decoration" aria-hidden="true"><div class="decor-bar bar-one"></div><div class="decor-bar bar-two"></div><div class="decor-bar bar-three"></div><div class="decor-line"></div></div>
+      </div>
+      <div class="login-card">
+        <p class="eyebrow">BIENVENIDO/A</p>
+        <h2>Inicia sesión</h2>
+        <p class="muted">Ingresa a tu espacio financiero de demostración.</p>
+        <form id="loginForm" class="login-form">
+          <div class="field"><label for="loginEmail">Correo electrónico</label><input id="loginEmail" type="email" autocomplete="username" placeholder="tu@correo.com" required></div>
+          <div class="field"><label for="loginPassword">Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Ingresa tu contraseña" required></div>
+          <p id="loginMessage" class="message error" role="status" aria-live="polite"></p>
+          <button class="button primary full" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
+        </form>
+        <div class="demo-credentials"><strong>Acceso de demostración</strong><span>Correo: demo@presupuesta.mx</span><span>Contraseña: Presupuesta123!</span><button id="fillDemo" class="link-button" type="button">Usar estos datos</button></div>
+        <p class="security-note">Prototipo académico: el acceso es simulado y los datos se guardan en este navegador. No uses contraseñas reales.</p>
+      </div>
+    </div>
+    <p class="login-footer">PRESUPUESTA · Proyecto académico de Ingeniería de Software</p>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar">
+      <a href="#dashboard" class="brand"><span class="brand-symbol">$</span><span>PRESUPUESTA</span></a>
+      <p class="nav-label">ESPACIO DE TRABAJO</p>
+      <nav id="mainNav" class="main-nav">
+        <button class="nav-link active" data-view="dashboard"><span class="nav-icon">▦</span> Resumen</button>
+        <button class="nav-link" data-view="transactions"><span class="nav-icon">↕</span> Movimientos</button>
+        <button class="nav-link" data-view="categories"><span class="nav-icon">▤</span> Categorías</button>
+        <button class="nav-link" data-view="budgets"><span class="nav-icon">◷</span> Presupuestos</button>
+        <button class="nav-link" data-view="reports"><span class="nav-icon">▥</span> Informes y exportación</button>
+      </nav>
+      <div class="sidebar-tip"><span class="tip-mark">i</span><p>Pequeños hábitos hoy, mejores decisiones mañana.</p></div>
+      <div class="sidebar-user"><div class="avatar">D</div><div class="user-meta"><strong>Usuario demo</strong><span id="sidebarEmail">demo@presupuesta.mx</span></div><button id="logoutButton" class="logout-button" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div><p class="eyebrow">GESTOR DE PRESUPUESTO PERSONAL</p><h1 id="pageTitle">Resumen financiero</h1><p id="pageSubtitle" class="muted">Una vista clara de tu dinero.</p></div>
+        <div class="topbar-actions"><span class="demo-chip"><span></span> Modo demostración</span><button class="button primary" id="quickAdd">+ Nuevo movimiento</button></div>
+      </header>
+
+      <section id="view-dashboard" class="view active">
+        <div class="filter-strip"><div><strong>Período del resumen</strong><span class="muted small">Elige el rango para actualizar los totales.</span></div><div class="date-filters"><label>Desde <input type="date" id="summaryFrom"></label><label>Hasta <input type="date" id="summaryTo"></label><button id="applySummaryFilter" class="button secondary small-button">Aplicar</button><button id="resetSummaryFilter" class="button ghost small-button">Este mes</button></div></div>
+        <div class="summary-grid">
+          <article class="summary-card"><div class="summary-icon income-icon">↙</div><p class="card-label">Ingresos del período</p><p id="totalIncome" class="metric positive">$0.00</p><p class="card-foot">Entradas registradas</p></article>
+          <article class="summary-card"><div class="summary-icon expense-icon">↗</div><p class="card-label">Gastos del período</p><p id="totalExpense" class="metric negative">$0.00</p><p class="card-foot">Salidas registradas</p></article>
+          <article class="summary-card balance-card"><div class="summary-icon balance-icon">＝</div><p class="card-label">Balance del período</p><p id="balance" class="metric">$0.00</p><p class="card-foot">Ingresos menos gastos</p></article>
+          <article class="summary-card"><div class="summary-icon budget-icon">◎</div><p class="card-label">Presupuesto utilizado</p><p id="budgetUsed" class="metric">$0.00</p><p id="budgetFoot" class="card-foot">Suma de gastos presupuestados</p></article>
+        </div>
+        <div id="alertCenter" class="alert-center hidden" role="status" aria-live="polite"></div>
+        <div class="dashboard-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Gastos por categoría</h2><p class="muted small">Distribución de gastos del período elegido.</p></div><button class="link-button" data-go="reports">Ver informe →</button></div><div id="categoryChart" class="category-chart"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Estado de presupuestos</h2><p class="muted small">Cuánto llevas utilizado por categoría.</p></div><button class="link-button" data-go="budgets">Ver todos →</button></div><div id="budgetPreview" class="budget-preview"></div></section>
+        </div>
+        <section class="panel table-panel"><div class="panel-heading"><div><h2>Movimientos recientes</h2><p class="muted small">Tus últimas operaciones registradas.</p></div><button class="link-button" data-go="transactions">Ver movimientos →</button></div><div class="table-wrap"><table><thead><tr><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Tipo</th><th class="right">Cantidad</th></tr></thead><tbody id="recentRows"></tbody></table></div></section>
+      </section>
+
+      <section id="view-transactions" class="view">
+        <section class="panel"><div class="panel-heading"><div><h2 id="transactionFormTitle">Agregar movimiento</h2><p class="muted small">Registra un ingreso o gasto con descripción, fecha, cantidad y categoría.</p></div></div>
+          <form id="transactionForm" class="transaction-form">
+            <input id="transactionId" type="hidden">
+            <div class="field"><label for="transactionType">Tipo</label><select id="transactionType" required><option value="expense">Gasto</option><option value="income">Ingreso</option></select></div>
+            <div class="field"><label for="transactionDescription">Descripción</label><input id="transactionDescription" maxlength="100" placeholder="Ej. Despensa de la semana" required></div>
+            <div class="field"><label for="transactionAmount">Cantidad (MXN)</label><input id="transactionAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
+            <div class="field"><label for="transactionDate">Fecha</label><input id="transactionDate" type="date" required></div>
+            <div class="field"><label for="transactionCategory">Categoría</label><select id="transactionCategory" required></select></div>
+            <div class="form-actions"><button class="button primary" type="submit" id="saveTransaction">Guardar movimiento</button><button class="button ghost hidden" id="cancelEdit" type="button">Cancelar edición</button></div>
+            <p id="transactionMessage" class="message" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+        <section class="panel table-panel"><div class="panel-heading"><div><h2>Todos los movimientos</h2><p class="muted small">Edita o elimina una operación cuando lo necesites.</p></div><button class="button secondary small-button" id="exportTransactions">Exportar CSV</button></div>
+          <div class="inline-filters"><label>Buscar <input id="transactionSearch" type="search" placeholder="Descripción o categoría"></label><label>Tipo <select id="transactionTypeFilter"><option value="all">Todos</option><option value="income">Ingresos</option><option value="expense">Gastos</option></select></label><label>Desde <input id="transactionFrom" type="date"></label><label>Hasta <input id="transactionTo" type="date"></label><button id="clearTransactionFilters" class="button ghost small-button">Limpiar</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Tipo</th><th class="right">Cantidad</th><th>Acciones</th></tr></thead><tbody id="transactionRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="view-categories" class="view">
+        <section class="panel"><div class="panel-heading"><div><h2>Crear una categoría</h2><p class="muted small">Organiza los movimientos con categorías personalizadas.</p></div></div>
+          <form id="categoryForm" class="category-form"><div class="field"><label for="categoryName">Nombre de la categoría</label><input id="categoryName" maxlength="35" placeholder="Ej. Mascotas" required></div><div class="field"><label for="categoryType">Tipo de categoría</label><select id="categoryType"><option value="expense">Gastos</option><option value="income">Ingresos</option><option value="both">Ingresos y gastos</option></select></div><button class="button primary" type="submit">+ Crear categoría</button></form><p id="categoryMessage" class="message" role="status" aria-live="polite"></p>
+        </section>
+        <section class="panel"><div class="panel-heading"><div><h2>Mis categorías</h2><p class="muted small">Elimina categorías personalizadas que no tengan movimientos asociados.</p></div></div><div id="categoryList" class="category-list"></div></section>
+      </section>
+
+      <section id="view-budgets" class="view">
+        <section class="panel"><div class="panel-heading"><div><h2>Definir presupuesto</h2><p class="muted small">Establece el máximo mensual de gasto por categoría.</p></div></div>
+          <form id="budgetForm" class="budget-form"><div class="field"><label for="budgetCategory">Categoría</label><select id="budgetCategory" required></select></div><div class="field"><label for="budgetLimit">Límite mensual (MXN)</label><input id="budgetLimit" type="number" min="0.01" step="0.01" placeholder="Ej. 2500" required></div><button class="button primary" type="submit">Guardar presupuesto</button></form><p id="budgetMessage" class="message" role="status" aria-live="polite"></p>
+        </section>
+        <section class="panel"><div class="panel-heading"><div><h2>Seguimiento de presupuestos</h2><p class="muted small">Las barras se actualizan al agregar o editar gastos. Aviso amarillo al 80% y rojo al llegar o superar el límite.</p></div></div><div id="budgetList" class="budget-list"></div></section>
+      </section>
+
+      <section id="view-reports" class="view">
+        <section class="panel"><div class="panel-heading"><div><h2>Generar informe</h2><p class="muted small">Selecciona un período para consultar y exportar tus movimientos.</p></div></div>
+          <div class="report-filters"><label>Desde <input id="reportFrom" type="date"></label><label>Hasta <input id="reportTo" type="date"></label><button id="generateReport" class="button primary">Generar informe</button></div>
+          <div id="reportSummary" class="report-summary"></div>
+          <div class="export-actions"><button id="exportCsv" class="button secondary">Descargar CSV</button><button id="exportPdf" class="button primary">Exportar / imprimir PDF</button></div>
+          <p class="muted small export-note">Para guardar como PDF, elige “Guardar como PDF” en el cuadro de impresión del navegador.</p>
+        </section>
+        <section class="panel"><div class="panel-heading"><div><h2>Resumen por categoría</h2><p class="muted small">Totales de ingresos y gastos por categoría en el período seleccionado.</p></div></div><div class="table-wrap"><table><thead><tr><th>Categoría</th><th class="right">Ingresos</th><th class="right">Gastos</th><th class="right">Balance</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
+      </section>
+      <footer class="app-footer">PRESUPUESTA · Prototipo académico. Datos locales de demostración; no es un servicio financiero.</footer>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+</body>
+</html>
