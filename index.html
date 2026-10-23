@@ -83,6 +83,7 @@
       </header>
 
       <section id="view-dashboard" class="view active">
+        <div class="balance-banner"><div class="balance-banner-main"><p class="card-label">Saldo total</p><p class="balance-banner-amount" data-total="balance">$0.00</p><p class="card-foot">Todos tus ingresos menos todos tus gastos, sin importar el período.</p></div><div class="balance-banner-side"><div><span>Ingresos totales</span><strong class="positive" data-total="income">$0.00</strong></div><div><span>Gastos totales</span><strong class="negative" data-total="expense">$0.00</strong></div></div></div>
         <div class="filter-strip"><div><strong>Período del resumen</strong><span class="muted small">Elige el rango para actualizar los totales.</span></div><div class="date-filters"><label>Desde <input type="date" id="summaryFrom"></label><label>Hasta <input type="date" id="summaryTo"></label><button id="applySummaryFilter" class="button secondary small-button">Aplicar</button><button id="resetSummaryFilter" class="button ghost small-button">Este mes</button></div></div>
         <div class="summary-grid">
           <article class="summary-card"><div class="summary-icon income-icon">↙</div><p class="card-label">Ingresos del período</p><p id="totalIncome" class="metric positive">$0.00</p><p class="card-foot">Entradas registradas</p></article>
@@ -99,6 +100,7 @@
       </section>
 
       <section id="view-transactions" class="view">
+        <div class="balance-banner"><div class="balance-banner-main"><p class="card-label">Saldo total</p><p class="balance-banner-amount" data-total="balance">$0.00</p><p class="card-foot">Todos tus ingresos menos todos tus gastos, sin importar el período.</p></div><div class="balance-banner-side"><div><span>Ingresos totales</span><strong class="positive" data-total="income">$0.00</strong></div><div><span>Gastos totales</span><strong class="negative" data-total="expense">$0.00</strong></div></div></div>
         <section class="panel"><div class="panel-heading"><div><h2 id="transactionFormTitle">Agregar movimiento</h2><p class="muted small">Registra un ingreso o gasto con descripción, fecha, cantidad y categoría.</p></div></div>
           <form id="transactionForm" class="transaction-form">
             <input id="transactionId" type="hidden">
@@ -113,7 +115,8 @@
         </section>
         <section class="panel table-panel"><div class="panel-heading"><div><h2>Todos los movimientos</h2><p class="muted small">Edita o elimina una operación cuando lo necesites.</p></div><button class="button secondary small-button" id="exportTransactions">Exportar CSV</button></div>
           <div class="inline-filters"><label>Buscar <input id="transactionSearch" type="search" placeholder="Descripción o categoría"></label><label>Tipo <select id="transactionTypeFilter"><option value="all">Todos</option><option value="income">Ingresos</option><option value="expense">Gastos</option></select></label><label>Desde <input id="transactionFrom" type="date"></label><label>Hasta <input id="transactionTo" type="date"></label><button id="clearTransactionFilters" class="button ghost small-button">Limpiar</button></div>
-          <div class="table-wrap"><table><thead><tr><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Tipo</th><th class="right">Cantidad</th><th>Acciones</th></tr></thead><tbody id="transactionRows"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Tipo</th><th class="right">Cantidad</th><th class="right">Saldo</th><th>Acciones</th></tr></thead><tbody id="transactionRows"></tbody></table></div>
+          <p class="muted small table-note">La columna Saldo es el acumulado real de tu cuenta después de cada movimiento, aunque uses filtros.</p>
         </section>
       </section>
 

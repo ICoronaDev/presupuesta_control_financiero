@@ -190,7 +190,7 @@ function setDefaultDates(){
   $("summaryFrom").value=monthStart();$("summaryTo").value=monthEnd();
   $("reportFrom").value=monthStart();$("reportTo").value=monthEnd();
 }
-function renderAll(){renderDashboard();renderTransactions();renderCategories();renderBudgets();renderReport();}
+function renderAll(){renderTotals();renderDashboard();renderTransactions();renderCategories();renderBudgets();renderReport();}
 function getSummaryTransactions(){return state.transactions.filter(x=>inRange(x,$("summaryFrom").value,$("summaryTo").value));}
 function renderDashboard(){
   const items=getSummaryTransactions(),income=sum(items,"income"),expense=sum(items,"expense"),balance=income-expense;
@@ -231,11 +231,40 @@ function renderRecent(){
   const rows=[...state.transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
   $("recentRows").innerHTML=rows.length?rows.map(x=>`<tr><td>${escapeHtml(x.description)}</td><td>${escapeHtml(x.category)}</td><td>${escapeHtml(x.date)}</td><td><span class="type-pill ${x.type}">${x.type==="income"?"Ingreso":"Gasto"}</span></td><td class="right ${x.type==="income"?"amount-income":"amount-expense"}">${x.type==="income"?"+":"−"}${fmt(x.amount)}</td></tr>`).join(""):'<tr><td colspan="5" class="empty-state">No hay movimientos todavía.</td></tr>';
 }
+function compareIds(a,b){
+  const bothNumeric=/^\d+$/.test(a)&&/^\d+$/.test(b);
+  return bothNumeric?Number(a)-Number(b):String(a).localeCompare(String(b));
+}
+function roundMoney(value){return Math.round(value*100)/100;}
+// Saldo acumulado después de cada movimiento (en orden cronológico, con todos los movimientos).
+function runningBalances(){
+  let total=0;const map=new Map();
+  [...state.transactions].sort((a,b)=>a.date.localeCompare(b.date)||compareIds(a.id,b.id)).forEach(x=>{
+    total=roundMoney(total+(x.type==="income"?x.amount:-x.amount));map.set(x.id,total);
+  });
+  return map;
+}
+// Saldo total en vivo: se recalcula cada vez que cambia algún movimiento.
+function renderTotals(){
+  const income=roundMoney(sum(state.transactions,"income")),expense=roundMoney(sum(state.transactions,"expense")),balance=roundMoney(income-expense);
+  document.querySelectorAll('[data-total="income"]').forEach(el=>{el.textContent=fmt(income);});
+  document.querySelectorAll('[data-total="expense"]').forEach(el=>{el.textContent=fmt(expense);});
+  document.querySelectorAll('[data-total="balance"]').forEach(el=>{
+    const text=fmt(balance),changed=el.textContent!==text&&el.dataset.ready==="1";
+    el.textContent=text;el.dataset.ready="1";
+    el.classList.toggle("negative",balance<0);
+    if(changed){el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");}
+  });
+}
 function renderTransactions(){
   const query=($("transactionSearch").value||"").trim().toLocaleLowerCase("es-MX");
   const type=$("transactionTypeFilter").value,from=$("transactionFrom").value,to=$("transactionTo").value;
-  const items=[...state.transactions].filter(x=>(type==="all"||x.type===type)&&inRange(x,from,to)&&(`${x.description} ${x.category}`.toLocaleLowerCase("es-MX").includes(query))).sort((a,b)=>b.date.localeCompare(a.date));
-  $("transactionRows").innerHTML=items.length?items.map(x=>`<tr><td>${escapeHtml(x.description)}</td><td>${escapeHtml(x.category)}</td><td>${escapeHtml(x.date)}</td><td><span class="type-pill ${x.type}">${x.type==="income"?"Ingreso":"Gasto"}</span></td><td class="right ${x.type==="income"?"amount-income":"amount-expense"}">${x.type==="income"?"+":"−"}${fmt(x.amount)}</td><td><div class="row-actions"><button class="icon-button" data-edit="${escapeHtml(x.id)}" type="button">Editar</button><button class="icon-button delete" data-delete="${escapeHtml(x.id)}" type="button">Borrar</button></div></td></tr>`).join(""):'<tr><td colspan="6" class="empty-state">No se encontraron movimientos con esos filtros.</td></tr>';
+  const balances=runningBalances();
+  const items=[...state.transactions].filter(x=>(type==="all"||x.type===type)&&inRange(x,from,to)&&(`${x.description} ${x.category}`.toLocaleLowerCase("es-MX").includes(query))).sort((a,b)=>b.date.localeCompare(a.date)||compareIds(b.id,a.id));
+  $("transactionRows").innerHTML=items.length?items.map(x=>{
+    const after=balances.get(x.id)||0;
+    return `<tr><td>${escapeHtml(x.description)}</td><td>${escapeHtml(x.category)}</td><td>${escapeHtml(x.date)}</td><td><span class="type-pill ${x.type}">${x.type==="income"?"Ingreso":"Gasto"}</span></td><td class="right ${x.type==="income"?"amount-income":"amount-expense"}">${x.type==="income"?"+":"−"}${fmt(x.amount)}</td><td class="right balance-cell${after<0?" negative":""}">${fmt(after)}</td><td><div class="row-actions"><button class="icon-button" data-edit="${escapeHtml(x.id)}" type="button">Editar</button><button class="icon-button delete" data-delete="${escapeHtml(x.id)}" type="button">Borrar</button></div></td></tr>`;
+  }).join(""):'<tr><td colspan="7" class="empty-state">No se encontraron movimientos con esos filtros.</td></tr>';
 }
 function renderCategories(){
   $("categoryList").innerHTML=state.categories.map(c=>{
