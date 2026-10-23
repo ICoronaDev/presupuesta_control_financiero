@@ -8,12 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
 <body>
   <section id="loginScreen" class="login-screen">
-    <div class="login-brand"><span class="brand-symbol">$</span><span>PRESUPUESTA</span></div>
+    <div class="login-brand"><span class="brand-mark"><img src="logo-icon.png" alt="" width="30" height="30" decoding="async"></span><span>PRESUPUESTA</span></div>
     <div class="login-layout">
       <div class="login-promo">
         <p class="eyebrow light">TU DINERO, MÁS CLARO</p>
@@ -27,25 +28,42 @@
         <div class="promo-decoration" aria-hidden="true"><div class="decor-bar bar-one"></div><div class="decor-bar bar-two"></div><div class="decor-bar bar-three"></div><div class="decor-line"></div></div>
       </div>
       <div class="login-card">
-        <p class="eyebrow">BIENVENIDO/A</p>
-        <h2>Inicia sesión</h2>
-        <p class="muted">Ingresa a tu espacio financiero de demostración.</p>
-        <form id="loginForm" class="login-form">
-          <div class="field"><label for="loginEmail">Correo electrónico</label><input id="loginEmail" type="email" autocomplete="username" placeholder="tu@correo.com" required></div>
-          <div class="field"><label for="loginPassword">Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Ingresa tu contraseña" required></div>
-          <p id="loginMessage" class="message error" role="status" aria-live="polite"></p>
-          <button class="button primary full" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
-        </form>
-        <div class="demo-credentials"><strong>Acceso de demostración</strong><span>Correo: demo@presupuesta.mx</span><span>Contraseña: Presupuesta123!</span><button id="fillDemo" class="link-button" type="button">Usar estos datos</button></div>
-        <p class="security-note">Prototipo académico: el acceso es simulado y los datos se guardan en este navegador. No uses contraseñas reales.</p>
-      </div>
+        <div id="loginPane">
+          <p class="eyebrow">BIENVENIDO/A</p>
+          <h2>Inicia sesión</h2>
+          <p class="muted">Ingresa a tu espacio financiero personal.</p>
+          <form id="loginForm" class="login-form">
+            <div class="field"><label for="loginEmail">Correo electrónico</label><input id="loginEmail" type="email" autocomplete="username" placeholder="tu@correo.com" required></div>
+            <div class="field"><label for="loginPassword">Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Ingresa tu contraseña" required></div>
+            <p id="loginMessage" class="message error" role="status" aria-live="polite"></p>
+            <button class="button primary full" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
+          </form>
+          <p class="auth-switch">¿Aún no tienes cuenta? <button id="showRegister" class="link-button" type="button">Crear una cuenta</button></p>
+        </div>
+        <div id="registerPane" class="hidden">
+          <p class="eyebrow">NUEVA CUENTA</p>
+          <h2>Crea tu cuenta</h2>
+          <p class="muted">Regístrate para guardar tus movimientos y presupuestos.</p>
+          <form id="registerForm" class="login-form">
+            <div class="field"><label for="registerName">Nombre</label><input id="registerName" type="text" autocomplete="name" maxlength="80" placeholder="Tu nombre" required></div>
+            <div class="field"><label for="registerEmail">Correo electrónico</label><input id="registerEmail" type="email" autocomplete="email" maxlength="120" placeholder="tu@correo.com" required></div>
+            <div class="field"><label for="registerPassword">Contraseña</label><input id="registerPassword" type="password" autocomplete="new-password" minlength="8" maxlength="72" placeholder="Mínimo 8 caracteres" required></div>
+            <p class="password-hint">Usa al menos 8 caracteres, con letras y números.</p>
+            <div class="field"><label for="registerConfirm">Confirmar contraseña</label><input id="registerConfirm" type="password" autocomplete="new-password" maxlength="72" placeholder="Repite tu contraseña" required></div>
+            <p id="registerMessage" class="message error" role="status" aria-live="polite"></p>
+            <button class="button primary full" type="submit">Crear cuenta <span aria-hidden="true">→</span></button>
+          </form>
+          <p class="auth-switch">¿Ya tienes cuenta? <button id="showLogin" class="link-button" type="button">Inicia sesión</button></p>
+        </div>
+        <p class="security-note">Modo local: las cuentas y los datos se guardan solo en este navegador (las contraseñas, cifradas). No uses contraseñas que utilices en otros sitios.</p>
+      </div></div>
     </div>
     <p class="login-footer">PRESUPUESTA · Proyecto académico de Ingeniería de Software</p>
   </section>
 
   <div id="appShell" class="app-shell hidden">
     <aside class="sidebar">
-      <a href="#dashboard" class="brand"><span class="brand-symbol">$</span><span>PRESUPUESTA</span></a>
+      <a href="#dashboard" class="brand"><span class="brand-mark"><img src="logo-icon.png" alt="" width="30" height="30" decoding="async"></span><span>PRESUPUESTA</span></a>
       <p class="nav-label">ESPACIO DE TRABAJO</p>
       <nav id="mainNav" class="main-nav">
         <button class="nav-link active" data-view="dashboard"><span class="nav-icon">▦</span> Resumen</button>
@@ -55,13 +73,13 @@
         <button class="nav-link" data-view="reports"><span class="nav-icon">▥</span> Informes y exportación</button>
       </nav>
       <div class="sidebar-tip"><span class="tip-mark">i</span><p>Pequeños hábitos hoy, mejores decisiones mañana.</p></div>
-      <div class="sidebar-user"><div class="avatar">D</div><div class="user-meta"><strong>Usuario demo</strong><span id="sidebarEmail">demo@presupuesta.mx</span></div><button id="logoutButton" class="logout-button" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div>
+      <div class="sidebar-user"><div class="avatar" id="avatarInitial">?</div><div class="user-meta"><strong id="sidebarName">Usuario</strong><span id="sidebarEmail"></span></div><button id="logoutButton" class="logout-button" title="Cerrar sesión" aria-label="Cerrar sesión">↪</button></div>
     </aside>
 
     <main class="main-content">
       <header class="topbar">
         <div><p class="eyebrow">GESTOR DE PRESUPUESTO PERSONAL</p><h1 id="pageTitle">Resumen financiero</h1><p id="pageSubtitle" class="muted">Una vista clara de tu dinero.</p></div>
-        <div class="topbar-actions"><span class="demo-chip"><span></span> Modo demostración</span><button class="button primary" id="quickAdd">+ Nuevo movimiento</button></div>
+        <div class="topbar-actions"><button class="button primary" id="quickAdd">+ Nuevo movimiento</button></div>
       </header>
 
       <section id="view-dashboard" class="view active">
@@ -122,7 +140,7 @@
         </section>
         <section class="panel"><div class="panel-heading"><div><h2>Resumen por categoría</h2><p class="muted small">Totales de ingresos y gastos por categoría en el período seleccionado.</p></div></div><div class="table-wrap"><table><thead><tr><th>Categoría</th><th class="right">Ingresos</th><th class="right">Gastos</th><th class="right">Balance</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
       </section>
-      <footer class="app-footer">PRESUPUESTA · Prototipo académico. Datos locales de demostración; no es un servicio financiero.</footer>
+      <footer class="app-footer">PRESUPUESTA · Proyecto académico. No es un servicio financiero.</footer>
     </main>
   </div>
 

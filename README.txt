@@ -1,42 +1,25 @@
-PRESUPUESTA — Prototipo frontend ampliado
-==========================================
+PRESUPUESTA — Versión que funciona abriendo solo index.html
+===========================================================
 
 CÓMO ABRIR
-1. Descomprime presupuesta_completo.zip.
-2. En Visual Studio Code: Archivo > Abrir carpeta > presupuesta_completo.
-3. Abre index.html. Puedes abrirlo directamente en Chrome/Edge o usar la extensión Live Server.
-4. En la pantalla de acceso usa:
-   Correo: demo@presupuesta.mx
-   Contraseña: Presupuesta123!
-   También puedes pulsar “Usar estos datos”.
+1. Descomprime la carpeta.
+2. Abre index.html con doble clic (Chrome, Edge o Firefox) o con Live Server.
+3. Pulsa "Crear una cuenta", regístrate e inicia sesión.
 
-FUNCIONES DEL PROTOTIPO
-- Inicio y cierre de sesión de demostración.
-- Crear categorías personalizadas para ingresos, gastos o ambos.
-- Registrar, editar, buscar, filtrar y borrar transacciones.
-- Resumen de ingresos, gastos y balance por período.
-- Totales y gráficos de gastos por categoría.
-- Crear, actualizar y eliminar límites de presupuesto.
-- Barras de presupuesto: aviso amarillo al 80% y rojo al 100% o más.
-- Informe por rango de fechas y desglose por categoría.
-- Exportación de movimientos e informes a CSV.
-- Vista de impresión del informe: elige “Guardar como PDF” en el diálogo de impresión.
-- Diseño adaptable a computadora y celular.
+QUÉ INCLUYE
+- Registro e inicio de sesión con varias cuentas en el mismo navegador.
+- Contraseñas cifradas con PBKDF2 (SHA-256, sal aleatoria); nunca se guardan en texto plano.
+- Los datos (movimientos, categorías, presupuestos) están separados por cuenta.
+- Al registrarse, cada cuenta recibe las categorías predeterminadas.
+- Validaciones de los formularios, CSV seguro y estilo de "Eliminar presupuesto" corregido.
 
-LÍMITES IMPORTANTES
-Esto es un prototipo académico de FRONTEND, no una aplicación lista para producción.
-- El inicio de sesión está simulado y usa credenciales de demostración fijadas en app.js.
-- No es un sistema seguro de autenticación: no protege datos privados ni debe usarse con contraseñas reales.
-- Los datos de transacciones, categorías y presupuestos se guardan en localStorage de este navegador.
-- No hay base de datos compartida, API ni cuentas individuales seguras.
-- Para entregar un sistema con seguridad real, el equipo de Backend debe implementar autenticación del lado del servidor, contraseñas con hash (por ejemplo Argon2/bcrypt), sesiones seguras o tokens con controles apropiados, validación de permisos y base de datos.
-- El PDF se genera a través de la función de imprimir del navegador; no crea un PDF en servidor.
-- Las alertas se muestran dentro de la interfaz, no se envían como notificaciones al teléfono/correo.
-
-NOTA PARA EL EQUIPO
-Antes de integrar con Backend/Fullstack, acuerden:
-- Campos de una transacción: id, description, amount, date, type, category.
-- Campos de categorías: name, type.
-- Campos de presupuesto: category, monthlyLimit.
-- Endpoints de API y formato de errores.
-- Cómo se identifica al usuario y qué datos puede consultar.
+LÍMITES (importante)
+- Todo se guarda en localStorage de ESTE navegador: no hay base de datos compartida.
+  Si se borran los datos del navegador, se pierden las cuentas y la información.
+  Una cuenta creada en una computadora no existe en otra.
+- Es un registro "de prototipo": cualquiera con acceso a la computadora y a DevTools
+  puede ver los datos guardados. No sirve para proteger información sensible real.
+- No hay recuperación de contraseña.
+- Para tener base de datos real, cuentas compartidas entre dispositivos y seguridad
+  de servidor, hay que usar un backend (versión "presupuesta.zip" con Node + SQLite)
+  o un servicio en la nube como Supabase/Firebase.

@@ -1,13 +1,3 @@
-const DEMO_EMAIL = "demo@presupuesta.mx";
-const DEMO_PASSWORD = "Presupuesta123!";
-const KEYS = { session: "presupuesta_demo_session_v2", data: "presupuesta_demo_data_v2" };
-const DEFAULT_CATEGORIES = [
-  {name:"Alimentación",type:"expense",builtIn:true},{name:"Transporte",type:"expense",builtIn:true},
-  {name:"Servicios",type:"expense",builtIn:true},{name:"Educación",type:"expense",builtIn:true},
-  {name:"Entretenimiento",type:"expense",builtIn:true},{name:"Salario",type:"income",builtIn:true},
-  {name:"Ventas",type:"income",builtIn:true},{name:"Otros",type:"both",builtIn:true}
-];
-const DEFAULT_BUDGETS = {"Alimentación":2500,"Transporte":1000,"Servicios":1500,"Educación":1200,"Entretenimiento":800,"Otros":1000};
 const TITLES = {
   dashboard:["Resumen financiero","Una vista clara de tu dinero."],
   transactions:["Ingresos y gastos","Registra y organiza cada movimiento."],
@@ -19,17 +9,131 @@ const $ = (id) => document.getElementById(id);
 const money = new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:2});
 let currentView = "dashboard";
 let toastTimer = null;
-let state = loadState();
+let state = {transactions:[],categories:[],budgets:{}};
+let currentUser = null;
 
-function clone(value){ return JSON.parse(JSON.stringify(value)); }
-function loadState(){
-  try {
-    const raw = localStorage.getItem(KEYS.data);
-    if(raw){ const data=JSON.parse(raw); return {transactions:Array.isArray(data.transactions)?data.transactions:[],categories:Array.isArray(data.categories)?data.categories:clone(DEFAULT_CATEGORIES),budgets:data.budgets&&typeof data.budgets==="object"?data.budgets:clone(DEFAULT_BUDGETS)}; }
-  } catch(e) {}
-  return {transactions:[],categories:clone(DEFAULT_CATEGORIES),budgets:clone(DEFAULT_BUDGETS)};
+// ---------- "Servidor" local: cuentas y datos guardados en este navegador ----------
+const LS = {users:"presupuesta.users",session:"presupuesta.session",data:id=>`presupuesta.data.${id}`};
+const DEFAULT_CATEGORIES = [
+  {name:"Alimentación",type:"expense"},{name:"Transporte",type:"expense"},{name:"Servicios",type:"expense"},{name:"Educación",type:"expense"},
+  {name:"Entretenimiento",type:"expense"},{name:"Salario",type:"income"},{name:"Ventas",type:"income"},{name:"Otros",type:"both"}
+];
+function readJson(key,fallback){try{const v=JSON.parse(localStorage.getItem(key));return v===null||v===undefined?fallback:v;}catch(e){return fallback;}}
+function writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(e){throw new Error("No se pudo guardar en el navegador (almacenamiento lleno o bloqueado).");}}
+function toHex(buffer){return [...new Uint8Array(buffer)].map(b=>b.toString(16).padStart(2,"0")).join("");}
+function fromHex(hex){return new Uint8Array(hex.match(/../g).map(x=>parseInt(x,16)));}
+function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+async function hashPassword(password,saltHex){
+  if(!(window.crypto&&window.crypto.subtle))throw new Error("Tu navegador no permite cifrar contraseñas aquí. Prueba con Chrome, Edge o Firefox actualizados.");
+  const salt=saltHex?fromHex(saltHex):window.crypto.getRandomValues(new Uint8Array(16));
+  const key=await window.crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
+  const bits=await window.crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:150000,hash:"SHA-256"},key,256);
+  return {salt:toHex(salt),hash:toHex(bits)};
 }
-function saveState(){ localStorage.setItem(KEYS.data,JSON.stringify(state)); }
+function failWith(message,status=400){const e=new Error(message);e.status=status;throw e;}
+function validDate(value){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+  const d=new Date(value+"T00:00:00Z");return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===value;
+}
+function parseTransactionInput(body,data){
+  const description=String(body.description||"").trim(),amount=Number(body.amount),date=String(body.date||""),type=body.type,category=String(body.category||"");
+  if(!description||description.length>100)failWith("La descripción es obligatoria (máximo 100 caracteres).");
+  if(!Number.isFinite(amount)||amount<=0||amount>999999999)failWith("Escribe una cantidad mayor que cero.");
+  if(!validDate(date))failWith("La fecha no es válida.");
+  if(type!=="income"&&type!=="expense")failWith("El tipo debe ser ingreso o gasto.");
+  const cat=data.categories.find(c=>c.name===category);
+  if(!cat)failWith("La categoría no existe.");
+  if(cat.type!=="both"&&cat.type!==type)failWith("Esa categoría no es válida para este tipo de movimiento.");
+  return {description,amount:Math.round(amount*100)/100,date,type,category};
+}
+
+async function api(path,options={}){
+  const method=options.method||"GET",body=options.body||{};
+  const users=readJson(LS.users,[]);
+  const publicUser=u=>({id:u.id,name:u.name,email:u.email});
+
+  if(path==="/auth/register"&&method==="POST"){
+    const name=String(body.name||"").trim().replace(/\s+/g," "),email=String(body.email||"").trim().toLowerCase(),password=String(body.password||"");
+    if(name.length<2||name.length>80)failWith("Escribe tu nombre (entre 2 y 80 caracteres).");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)||email.length>120)failWith("Escribe un correo electrónico válido.");
+    if(password.length<8||password.length>72||!/[A-Za-z]/.test(password)||!/\d/.test(password))failWith("La contraseña debe tener entre 8 y 72 caracteres, con letras y números.");
+    if(users.some(u=>u.email===email))failWith("Ya existe una cuenta con ese correo. Inicia sesión.",409);
+    const {salt,hash}=await hashPassword(password);
+    const user={id:newId(),name,email,salt,hash};
+    users.push(user);writeJson(LS.users,users);
+    writeJson(LS.data(user.id),{categories:DEFAULT_CATEGORIES.map(c=>({...c,builtIn:true})),transactions:[],budgets:{}});
+    sessionStorage.setItem(LS.session,user.id);
+    return {user:publicUser(user)};
+  }
+  if(path==="/auth/login"&&method==="POST"){
+    const email=String(body.email||"").trim().toLowerCase(),password=String(body.password||"");
+    const user=users.find(u=>u.email===email);
+    const attempt=await hashPassword(password,user?user.salt:null);
+    if(!user||attempt.hash!==user.hash)failWith("Correo o contraseña incorrectos.",401);
+    sessionStorage.setItem(LS.session,user.id);
+    return {user:publicUser(user)};
+  }
+  if(path==="/auth/logout"){sessionStorage.removeItem(LS.session);return {ok:true};}
+
+  const user=users.find(u=>u.id===sessionStorage.getItem(LS.session));
+  if(!user){
+    if(!path.startsWith("/auth/"))showLogin("Tu sesión expiró. Inicia sesión de nuevo.",true);
+    failWith("Inicia sesión para continuar.",401);
+  }
+  if(path==="/auth/me")return {user:publicUser(user)};
+
+  const data=readJson(LS.data(user.id),{categories:[],transactions:[],budgets:{}});
+  const save=()=>writeJson(LS.data(user.id),data);
+  let m;
+
+  if(path==="/data"&&method==="GET")return data;
+
+  if(path==="/transactions"&&method==="POST"){
+    const item={id:newId(),...parseTransactionInput(body,data)};
+    data.transactions.push(item);save();return item;
+  }
+  if((m=path.match(/^\/transactions\/([^/]+)$/))){
+    const id=decodeURIComponent(m[1]),index=data.transactions.findIndex(t=>t.id===id);
+    if(index<0)failWith("El movimiento no existe.",404);
+    if(method==="PUT"){data.transactions[index]={id,...parseTransactionInput(body,data)};save();return data.transactions[index];}
+    if(method==="DELETE"){data.transactions.splice(index,1);save();return {ok:true};}
+  }
+  if(path==="/categories"&&method==="POST"){
+    const name=String(body.name||"").trim(),type=body.type;
+    if(!name||name.length>35)failWith("El nombre es obligatorio (máximo 35 caracteres).");
+    if(!["income","expense","both"].includes(type))failWith("El tipo de categoría no es válido.");
+    if(data.categories.some(c=>c.name.toLocaleLowerCase("es-MX")===name.toLocaleLowerCase("es-MX")))failWith("Ya existe una categoría con ese nombre.",409);
+    const created={name,type,builtIn:false};data.categories.push(created);save();return created;
+  }
+  if((m=path.match(/^\/categories\/([^/]+)$/))&&method==="DELETE"){
+    const name=decodeURIComponent(m[1]),cat=data.categories.find(c=>c.name===name);
+    if(!cat)failWith("La categoría no existe.",404);
+    if(cat.builtIn)failWith("Las categorías predeterminadas no se pueden eliminar.");
+    if(data.transactions.some(t=>t.category===name))failWith("No puedes borrar una categoría que tiene movimientos asociados.",409);
+    if(Object.hasOwn(data.budgets,name))failWith("Primero elimina el presupuesto asociado a esta categoría.",409);
+    data.categories=data.categories.filter(c=>c.name!==name);save();return {ok:true};
+  }
+  if((m=path.match(/^\/budgets\/([^/]+)$/))){
+    const name=decodeURIComponent(m[1]),cat=data.categories.find(c=>c.name===name);
+    if(method==="PUT"){
+      const limit=Number(body.limit);
+      if(!Number.isFinite(limit)||limit<=0||limit>999999999)failWith("Escribe un límite mayor que cero.");
+      if(!cat)failWith("La categoría no existe.",404);
+      if(cat.type==="income")failWith("Solo puedes presupuestar categorías de gastos.");
+      data.budgets[name]=Math.round(limit*100)/100;save();return {category:name,limit:data.budgets[name]};
+    }
+    if(method==="DELETE"){
+      if(!Object.hasOwn(data.budgets,name))failWith("El presupuesto no existe.",404);
+      delete data.budgets[name];save();return {ok:true};
+    }
+  }
+  failWith("Ruta no encontrada.",404);
+}
+
+async function loadState(){
+  const data = await api("/data");
+  state = {transactions:data.transactions, categories:data.categories, budgets:data.budgets};
+}
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function monthStart(){return `${todayISO().slice(0,7)}-01`;}
@@ -62,13 +166,25 @@ function navigate(view){
   if(view==="transactions")renderTransactions();
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function startApp(email){
+async function startApp(user){
+  currentUser = user;
+  try{ await loadState(); }catch(err){ showMessage("loginMessage", err.message, true); return; }
   $("loginScreen").classList.add("hidden");$("appShell").classList.remove("hidden");
-  $("sidebarEmail").textContent=email;$("loginMessage").textContent="";
-  const session={email,startedAt:Date.now()};sessionStorage.setItem(KEYS.session,JSON.stringify(session));
+  $("sidebarEmail").textContent=user.email;$("sidebarName").textContent=user.name;
+  $("avatarInitial").textContent=(user.name||"?").trim().charAt(0).toUpperCase();
+  showMessage("loginMessage","");showMessage("registerMessage","");
   refreshCategorySelects();setDefaultDates();renderAll();navigate("dashboard");
 }
-function logout(){sessionStorage.removeItem(KEYS.session);$("appShell").classList.add("hidden");$("loginScreen").classList.remove("hidden");$("loginPassword").value="";showMessage("loginMessage","Has cerrado la sesión.");}
+function showAuthMode(mode){
+  $("loginPane").classList.toggle("hidden",mode!=="login");
+  $("registerPane").classList.toggle("hidden",mode!=="register");
+}
+function showLogin(message,isError=false){
+  currentUser=null;state={transactions:[],categories:[],budgets:{}};
+  $("appShell").classList.add("hidden");$("loginScreen").classList.remove("hidden");
+  $("loginPassword").value="";showAuthMode("login");showMessage("loginMessage",message||"",isError);
+}
+async function logout(){ try{ await api("/auth/logout",{method:"POST"}); }catch(e){} showLogin("Has cerrado la sesión."); }
 function setDefaultDates(){
   $("transactionDate").value=todayISO();
   $("summaryFrom").value=monthStart();$("summaryTo").value=monthEnd();
@@ -144,20 +260,23 @@ function resetTransactionForm(){
   $("transactionForm").reset();$("transactionId").value="";$("transactionDate").value=todayISO();
   $("transactionFormTitle").textContent="Agregar movimiento";$("saveTransaction").textContent="Guardar movimiento";$("cancelEdit").classList.add("hidden");refreshCategorySelects();
 }
+function csvSafe(value){const text=String(value);return /^[=+\-@\t\r]/.test(text)?"'"+text:text;}
 function exportCsv(items,filename){
-  const rows=[["Descripción","Fecha","Tipo","Categoría","Cantidad (MXN)"],...items.map(x=>[x.description,x.date,x.type==="income"?"Ingreso":"Gasto",x.category,x.amount.toFixed(2)])];
+  const rows=[["Descripción","Fecha","Tipo","Categoría","Cantidad (MXN)"],...items.map(x=>[csvSafe(x.description),x.date,x.type==="income"?"Ingreso":"Gasto",csvSafe(x.category),x.amount.toFixed(2)])];
   const csv="\uFEFF"+rows.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);toast("Archivo CSV preparado para descargar.");
 }
 function dateFilename(){return todayISO();}
-function handleTransactionSubmit(event){
+async function handleTransactionSubmit(event){
   event.preventDefault();
   const id=$("transactionId").value,description=$("transactionDescription").value.trim(),amount=Number($("transactionAmount").value),date=$("transactionDate").value,type=$("transactionType").value,category=$("transactionCategory").value;
   if(!description||!date||!category||!Number.isFinite(amount)||amount<=0){showMessage("transactionMessage","Completa todos los campos y usa una cantidad mayor que cero.",true);return;}
-  const existing=state.transactions.find(x=>x.id===id);
-  const item={id:id||`${Date.now()}-${Math.random().toString(16).slice(2)}`,description,amount,date,type,category};
-  if(existing)state.transactions=state.transactions.map(x=>x.id===id?item:x);else state.transactions.push(item);
-  saveState();resetTransactionForm();renderAll();showMessage("transactionMessage",existing?"Movimiento actualizado.":"Movimiento agregado correctamente.");toast(existing?"Movimiento actualizado.":"Movimiento guardado.");
+  const isEdit=Boolean(id);
+  try{
+    const saved=await api(isEdit?`/transactions/${encodeURIComponent(id)}`:"/transactions",{method:isEdit?"PUT":"POST",body:{description,amount,date,type,category}});
+    if(isEdit)state.transactions=state.transactions.map(x=>x.id===id?saved:x);else state.transactions.push(saved);
+    resetTransactionForm();renderAll();showMessage("transactionMessage",isEdit?"Movimiento actualizado.":"Movimiento agregado correctamente.");toast(isEdit?"Movimiento actualizado.":"Movimiento guardado.");
+  }catch(err){showMessage("transactionMessage",err.message,true);}
 }
 function editTransaction(id){
   const item=state.transactions.find(x=>x.id===id);if(!item)return;
@@ -165,38 +284,60 @@ function editTransaction(id){
   $("transactionDescription").value=item.description;$("transactionAmount").value=item.amount;$("transactionDate").value=item.date;$("transactionCategory").value=item.category;
   $("transactionFormTitle").textContent="Editar movimiento";$("saveTransaction").textContent="Guardar cambios";$("cancelEdit").classList.remove("hidden");$("transactionDescription").focus();
 }
-function deleteTransaction(id){
+async function deleteTransaction(id){
   const item=state.transactions.find(x=>x.id===id);if(!item)return;
   if(!confirm(`¿Quieres borrar el movimiento "${item.description}"?`))return;
-  state.transactions=state.transactions.filter(x=>x.id!==id);saveState();renderAll();toast("Movimiento eliminado.");
+  try{await api(`/transactions/${encodeURIComponent(id)}`,{method:"DELETE"});state.transactions=state.transactions.filter(x=>x.id!==id);renderAll();toast("Movimiento eliminado.");}
+  catch(err){toast(err.message);}
 }
-function addCategory(event){
+async function addCategory(event){
   event.preventDefault();const name=$("categoryName").value.trim(),type=$("categoryType").value;
   if(!name){showMessage("categoryMessage","Escribe un nombre para la categoría.",true);return;}
   if(state.categories.some(c=>c.name.toLocaleLowerCase("es-MX")===name.toLocaleLowerCase("es-MX"))){showMessage("categoryMessage","Ya existe una categoría con ese nombre.",true);return;}
-  state.categories.push({name,type,builtIn:false});saveState();$("categoryForm").reset();refreshCategorySelects();renderCategories();renderBudgets();renderDashboard();showMessage("categoryMessage","Categoría creada correctamente.");toast("Categoría agregada.");
+  try{
+    const created=await api("/categories",{method:"POST",body:{name,type}});
+    state.categories.push(created);$("categoryForm").reset();refreshCategorySelects();renderCategories();renderBudgets();renderDashboard();showMessage("categoryMessage","Categoría creada correctamente.");toast("Categoría agregada.");
+  }catch(err){showMessage("categoryMessage",err.message,true);}
 }
-function deleteCategory(name){
+async function deleteCategory(name){
   if(state.transactions.some(t=>t.category===name)){toast("No puedes borrar una categoría que tiene movimientos asociados.");return;}
   if(Object.hasOwn(state.budgets,name)){toast("Primero elimina el presupuesto asociado a esta categoría.");return;}
   if(!confirm(`¿Eliminar la categoría "${name}"?`))return;
-  state.categories=state.categories.filter(c=>c.name!==name);saveState();refreshCategorySelects();renderCategories();renderDashboard();toast("Categoría eliminada.");
+  try{await api(`/categories/${encodeURIComponent(name)}`,{method:"DELETE"});state.categories=state.categories.filter(c=>c.name!==name);refreshCategorySelects();renderCategories();renderDashboard();toast("Categoría eliminada.");}
+  catch(err){toast(err.message);}
 }
-function saveBudget(event){
+async function saveBudget(event){
   event.preventDefault();const category=$("budgetCategory").value,limit=Number($("budgetLimit").value);
   if(!category||!Number.isFinite(limit)||limit<=0){showMessage("budgetMessage","Selecciona una categoría y escribe un límite mayor que cero.",true);return;}
-  state.budgets[category]=limit;saveState();$("budgetLimit").value="";renderBudgets();renderDashboard();showMessage("budgetMessage",`Presupuesto de ${category} guardado.`);toast("Presupuesto actualizado.");
+  try{
+    await api(`/budgets/${encodeURIComponent(category)}`,{method:"PUT",body:{limit}});
+    state.budgets[category]=limit;$("budgetLimit").value="";renderBudgets();renderDashboard();showMessage("budgetMessage",`Presupuesto de ${category} guardado.`);toast("Presupuesto actualizado.");
+  }catch(err){showMessage("budgetMessage",err.message,true);}
 }
-function deleteBudget(category){
+async function deleteBudget(category){
   if(!confirm(`¿Eliminar el presupuesto de "${category}"?`))return;
-  delete state.budgets[category];saveState();renderBudgets();renderDashboard();toast("Presupuesto eliminado.");
+  try{await api(`/budgets/${encodeURIComponent(category)}`,{method:"DELETE"});delete state.budgets[category];renderBudgets();renderDashboard();toast("Presupuesto eliminado.");}
+  catch(err){toast(err.message);}
 }
 function applySummary(){renderDashboard();}
 function resetSummary(){ $("summaryFrom").value=monthStart();$("summaryTo").value=monthEnd();renderDashboard();}
 function resetTransactionFilters(){$("transactionSearch").value="";$("transactionTypeFilter").value="all";$("transactionFrom").value="";$("transactionTo").value="";renderTransactions();}
 function bindEvents(){
-  $("loginForm").addEventListener("submit",e=>{e.preventDefault();const email=$("loginEmail").value.trim().toLowerCase(),password=$("loginPassword").value;if(email===DEMO_EMAIL&&password===DEMO_PASSWORD)startApp(email);else showMessage("loginMessage","Datos incorrectos. Usa la cuenta de demostración indicada abajo.",true);});
-  $("fillDemo").addEventListener("click",()=>{$("loginEmail").value=DEMO_EMAIL;$("loginPassword").value=DEMO_PASSWORD;showMessage("loginMessage","Datos de demostración completados.");});
+  $("loginForm").addEventListener("submit",async e=>{
+    e.preventDefault();const email=$("loginEmail").value.trim().toLowerCase(),password=$("loginPassword").value;
+    try{const data=await api("/auth/login",{method:"POST",body:{email,password}});$("loginForm").reset();await startApp(data.user);}
+    catch(err){showMessage("loginMessage",err.message,true);}
+  });
+  $("registerForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const name=$("registerName").value.trim(),email=$("registerEmail").value.trim().toLowerCase(),password=$("registerPassword").value,again=$("registerConfirm").value;
+    if(password!==again){showMessage("registerMessage","Las contraseñas no coinciden.",true);return;}
+    if(password.length<8||!/[A-Za-z]/.test(password)||!/\d/.test(password)){showMessage("registerMessage","La contraseña debe tener al menos 8 caracteres, con letras y números.",true);return;}
+    try{const data=await api("/auth/register",{method:"POST",body:{name,email,password}});$("registerForm").reset();await startApp(data.user);toast("¡Cuenta creada! Ya puedes registrar tus movimientos.");}
+    catch(err){showMessage("registerMessage",err.message,true);}
+  });
+  $("showRegister").addEventListener("click",()=>{showMessage("loginMessage","");showAuthMode("register");});
+  $("showLogin").addEventListener("click",()=>{showMessage("registerMessage","");showAuthMode("login");});
   $("logoutButton").addEventListener("click",logout);
   $("mainNav").addEventListener("click",e=>{const button=e.target.closest("[data-view]");if(button)navigate(button.dataset.view);});
   document.body.addEventListener("click",e=>{const go=e.target.closest("[data-go]");if(go)navigate(go.dataset.go);});
@@ -217,8 +358,8 @@ function bindEvents(){
   $("exportCsv").addEventListener("click",()=>exportCsv(reportItems(),`presupuesta-informe-${dateFilename()}.csv`));
   $("exportPdf").addEventListener("click",()=>{navigate("reports");window.print();});
 }
-function init(){
-  bindEvents();setDefaultDates();refreshCategorySelects();
-  try{const session=JSON.parse(sessionStorage.getItem(KEYS.session)||"null");if(session?.email===DEMO_EMAIL)startApp(session.email);}catch(e){}
+async function init(){
+  bindEvents();setDefaultDates();
+  try{const data=await api("/auth/me");await startApp(data.user);}catch(e){}
 }
 init();
